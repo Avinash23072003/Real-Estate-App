@@ -26,51 +26,43 @@ export const register = async (req, res) => {
     }
 };
 
+
+const JWT_SECRET_KEY = "GE3gZVA89uyTUdSxxPZPM9QBf7W1n3xKm4xmmqX04ME=";
+  console.log(JWT_SECRET_KEY);
 export const login = async (req, res) => {
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    try {
-        // Check if user exists
-        const user = await prisma.user.findUnique({
-            where: { username }
-        });
+  try {
+    const user = await prisma.user.findUnique({ where: { username } });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-        if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) return res.status(401).json({ message: "Invalid credentials" });
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      JWT_SECRET_KEY,
+      { expiresIn: '7d' }
+    );
 
-        if (!isPasswordValid) return res.status(401).json({ message: "Invalid credentials" });
+    const { password: _, ...userInfo } = user;
 
-        // Generate a JWT token for the user
-        const token = jwt.sign(
-            { userId: user.id, username: user.username },
-            process.env.JWT_SECRET || 'defaultsecret', // Use a secure secret in production
-            { expiresIn: '7d' }
-        );
+    res.cookie("token1", token, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      secure: false,
+      sameSite: "lax"
+    });
 
-        // Remove password from user object before sending it in the response
-        const { password: _, ...userInfo } = user;
-
-        // Set the token as an HTTP-only cookie
-        res.cookie("token1", token, {
-            httpOnly: true,
-            maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-            secure: false, // Set to true in production
-            sameSite: "lax" // Allows sending cookies on same-origin requests
-        });
-        
-
-        // Send a JSON response after setting the cookie
-        res.status(200).json({ userInfo, token });
-
-    } catch (err) { 
-        console.log(err);
-        res.status(500).json({ message: "Failed to login" });
-    }
+    res.status(200).json({ userInfo, token });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Failed to login" });
+  }
 };
 
 export const logout = (req, res) => {
-    // Clear the "token" cookie
-    res.clearCookie('token');
+    // Clear the "token1" cookie
+    res.clearCookie('token1');
     res.status(200).json({ message: 'User logged out successfully' });
 };

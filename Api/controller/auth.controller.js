@@ -40,7 +40,7 @@ export const login = async (req, res) => {
     if (!isPasswordValid) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
-      { userId: user.id, username: user.username },
+      { userId: user.id, username: user.username ,isAdmin:false},
       JWT_SECRET_KEY,
       { expiresIn: '7d' }
     );
